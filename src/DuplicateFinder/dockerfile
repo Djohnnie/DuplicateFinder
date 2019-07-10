@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/dotnet/core/runtime:2.2 AS base
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the app
+COPY bin/Release/publish /app
+
+# Set environment variables
+ENV TZ=Europe/Brussels
+ENV CONNECTIONSTRING=...
+ENV LOCATIONS=...
+
+# Start the app
+ENTRYPOINT ["dotnet", "DuplicateFinder.dll"]
