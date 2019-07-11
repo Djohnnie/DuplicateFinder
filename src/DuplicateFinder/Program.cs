@@ -14,17 +14,27 @@ namespace DuplicateFinder
     {
         static async Task Main(string[] args)
         {
-            var locationsVariable = Environment.GetEnvironmentVariable("LOCATIONS");
-            var locations = locationsVariable.Split(';');
-            using (var db = new DatabaseContext())
+            try
             {
-                await db.Database.EnsureCreatedAsync();
-            }
+                var locationsVariable = Environment.GetEnvironmentVariable("LOCATIONS");
+                var locations = locationsVariable.Split(';');
+                using (var db = new DatabaseContext())
+                {
+                    await db.Database.EnsureCreatedAsync();
+                }
 
-            foreach (var location in locations)
+                foreach (var location in locations)
+                {
+                    var directoryInfo = new DirectoryInfo(location);
+                    await Recurse(directoryInfo);
+                }
+
+
+                WriteLine("<><><> FINISHED <><><>");
+            }
+            catch(Exception ex)
             {
-                var directoryInfo = new DirectoryInfo(location);
-                await Recurse(directoryInfo);
+                WriteLine($"MAIN ERROR: {ex}");
             }
         }
 
@@ -115,31 +125,39 @@ namespace DuplicateFinder
 
         private static async Task<Guid> CreateHash(FileInfo fileInfo)
         {
-            var result = Guid.Empty;
-            var sw = Stopwatch.StartNew();
-            using (var reader = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read))
+            try
             {
-                using (var md5 = MD5.Create())
+                var result = Guid.Empty;
+                var sw = Stopwatch.StartNew();
+                using (var reader = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read))
                 {
-                    if (fileInfo.Length > 1048576)
+                    using (var md5 = MD5.Create())
                     {
-                        var buffer = new Byte[1048576];
-                        await reader.ReadAsync(buffer, 0, 1048576);
-                        var hashBytes = md5.ComputeHash(buffer);
-                        result = new Guid(hashBytes);
-                    }
-                    else
-                    {
-                        var hashBytes = md5.ComputeHash(reader);
-                        result = new Guid(hashBytes);
+                        if (fileInfo.Length > 1048576)
+                        {
+                            var buffer = new Byte[1048576];
+                            await reader.ReadAsync(buffer, 0, 1048576);
+                            var hashBytes = md5.ComputeHash(buffer);
+                            result = new Guid(hashBytes);
+                        }
+                        else
+                        {
+                            var hashBytes = md5.ComputeHash(reader);
+                            result = new Guid(hashBytes);
+                        }
                     }
                 }
+
+                sw.Stop();
+                _timeSpentOnHashing += sw.ElapsedMilliseconds;
+
+                return result;
             }
-
-            sw.Stop();
-            _timeSpentOnHashing += sw.ElapsedMilliseconds;
-
-            return result;
+            catch(Exception ex)
+            {
+                WriteLine($"HASH ERROR: {ex}");
+                throw;
+            }
         }
 
         private static Int32 _progress = 0;
