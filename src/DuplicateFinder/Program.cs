@@ -44,7 +44,7 @@ namespace DuplicateFinder
                     try
                     {
                         var sw0 = Stopwatch.StartNew();
-                        if (!await db.Files.AnyAsync(x => x.Size == fileInfo.Length) || !await db.Files.AnyAsync(x => x.FileName == fileInfo.FullName))
+                        if (!await db.Files.AnyAsync(x => x.Size == fileInfo.Length) && !await db.Files.AnyAsync(x => x.FileName == fileInfo.FullName))
                         {
                             sw0.Stop();
                             _timeSpentOnDatabase += sw0.ElapsedMilliseconds;
