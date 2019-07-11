@@ -70,6 +70,8 @@ namespace DuplicateFinder
                     {
 
                     }
+
+                    LogProgress();
                 }
                 var sw2 = Stopwatch.StartNew();
                 await db.SaveChangesAsync();
