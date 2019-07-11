@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace DuplicateFinder.Model
 {
@@ -11,6 +9,7 @@ namespace DuplicateFinder.Model
         public Int64 Size { get; set; }
         public String FileName { get; set; }
         public String Path { get; set; }
-        public String Hash { get; set; }
+        public Guid PathHash { get; set; }
+        public Guid DataHash { get; set; }
     }
 }

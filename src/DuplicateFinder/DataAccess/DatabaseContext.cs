@@ -28,7 +28,8 @@ namespace DuplicateFinder.DataAccess
                 e.ToTable("FILES").HasKey(x => x.Id).ForSqlServerIsClustered(false);
                 e.Property<Int32>("SysId").UseSqlServerIdentityColumn();
                 e.HasIndex("SysId").ForSqlServerIsClustered();
-                e.HasIndex(x => x.Hash);
+                e.HasIndex(x => x.PathHash);
+                e.HasIndex(x => x.DataHash);
                 e.HasIndex(x => x.Size);
             });
         }

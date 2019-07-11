@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using DuplicateFinder.DataAccess;
 using Microsoft.EntityFrameworkCore;
@@ -43,13 +44,15 @@ namespace DuplicateFinder
                 {
                     try
                     {
+                        var pathHash = CreateHash(fileInfo.FullName);
+
                         var sw0 = Stopwatch.StartNew();
-                        if (!await db.Files.AnyAsync(x => x.Size == fileInfo.Length) && !await db.Files.AnyAsync(x => x.FileName == fileInfo.FullName))
+                        if (!await db.Files.AnyAsync(x => x.PathHash == pathHash))
                         {
                             sw0.Stop();
                             _timeSpentOnDatabase += sw0.ElapsedMilliseconds;
 
-                            string hash = await CreateHash(fileInfo);
+                            var dataHash = await CreateHash(fileInfo);
 
                             var sw1 = Stopwatch.StartNew();
                             await db.Files.AddAsync(new Model.File
@@ -58,7 +61,8 @@ namespace DuplicateFinder
                                 Size = fileInfo.Length,
                                 FileName = fileInfo.Name,
                                 Path = fileInfo.FullName,
-                                Hash = hash
+                                PathHash = pathHash,
+                                DataHash = dataHash
                             });
                             sw1.Stop();
                             _timeSpentOnDatabase += sw1.ElapsedMilliseconds;
@@ -83,9 +87,26 @@ namespace DuplicateFinder
             }
         }
 
-        private static async Task<String> CreateHash(FileInfo fileInfo)
+        private static Guid CreateHash(String path)
         {
-            var result = String.Empty;
+            var result = Guid.Empty;
+            var sw = Stopwatch.StartNew();
+            using (var md5 = MD5.Create())
+            {
+                var stringBytes = Encoding.UTF32.GetBytes(path);
+                var hashBytes = md5.ComputeHash(stringBytes);
+                result = new Guid(hashBytes);
+            }
+
+            sw.Stop();
+            _timeSpentOnHashing += sw.ElapsedMilliseconds;
+
+            return result;
+        }
+
+        private static async Task<Guid> CreateHash(FileInfo fileInfo)
+        {
+            var result = Guid.Empty;
             var sw = Stopwatch.StartNew();
             using (var reader = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read))
             {
@@ -96,12 +117,12 @@ namespace DuplicateFinder
                         var buffer = new Byte[1048576];
                         await reader.ReadAsync(buffer, 0, 1048576);
                         var hashBytes = md5.ComputeHash(buffer);
-                        result = Convert.ToBase64String(hashBytes);
+                        result = new Guid(hashBytes);
                     }
                     else
                     {
                         var hashBytes = md5.ComputeHash(reader);
-                        result = Convert.ToBase64String(hashBytes);
+                        result = new Guid(hashBytes);
                     }
                 }
             }
