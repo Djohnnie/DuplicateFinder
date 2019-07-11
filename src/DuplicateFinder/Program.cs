@@ -34,14 +34,17 @@ namespace DuplicateFinder
                 await Recurse(subDirectoryInfo);
             }
 
+            var sw = Stopwatch.StartNew();
             using (var db = new DatabaseContext())
             {
+                sw.Stop();
+                _timeSpentOnDatabase += sw.ElapsedMilliseconds;
                 foreach (var fileInfo in directoryInfo.GetFiles())
                 {
                     try
                     {
                         var sw0 = Stopwatch.StartNew();
-                        if (!await db.Files.AnyAsync(x => x.FileName == fileInfo.FullName))
+                        if (!await db.Files.AnyAsync(x => x.Size == fileInfo.Length) || !await db.Files.AnyAsync(x => x.FileName == fileInfo.FullName))
                         {
                             sw0.Stop();
                             _timeSpentOnDatabase += sw0.ElapsedMilliseconds;
@@ -126,6 +129,7 @@ namespace DuplicateFinder
                 WriteLine($"{_lastProgress} items processed past minute!");
                 WriteLine($"{_timeSpentOnHashing / 1000:F0} seconds spent on hashing past minute!");
                 WriteLine($"{_timeSpentOnDatabase / 1000:F0} seconds spent on database writes past minute!");
+                WriteLine("------------------------------------------------------------------------------");
                 _startDateTime = DateTime.UtcNow;
                 _lastProgress = 0;
                 _timeSpentOnDatabase = 0;
