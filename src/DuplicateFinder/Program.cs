@@ -30,60 +30,69 @@ namespace DuplicateFinder
 
         static async Task Recurse(DirectoryInfo directoryInfo)
         {
-            foreach (var subDirectoryInfo in directoryInfo.GetDirectories())
+            try
             {
-                await Recurse(subDirectoryInfo);
-            }
-
-            var sw = Stopwatch.StartNew();
-            using (var db = new DatabaseContext())
-            {
-                sw.Stop();
-                _timeSpentOnDatabase += sw.ElapsedMilliseconds;
-                foreach (var fileInfo in directoryInfo.GetFiles())
+                foreach (var subDirectoryInfo in directoryInfo.GetDirectories())
                 {
-                    try
-                    {
-                        var pathHash = CreateHash(fileInfo.FullName);
-
-                        var sw0 = Stopwatch.StartNew();
-                        if (!await db.Files.AnyAsync(x => x.PathHash == pathHash))
-                        {
-                            sw0.Stop();
-                            _timeSpentOnDatabase += sw0.ElapsedMilliseconds;
-
-                            var dataHash = await CreateHash(fileInfo);
-
-                            var sw1 = Stopwatch.StartNew();
-                            await db.Files.AddAsync(new Model.File
-                            {
-                                Id = Guid.NewGuid(),
-                                Size = fileInfo.Length,
-                                FileName = fileInfo.Name,
-                                Path = fileInfo.FullName,
-                                PathHash = pathHash,
-                                DataHash = dataHash
-                            });
-                            sw1.Stop();
-                            _timeSpentOnDatabase += sw1.ElapsedMilliseconds;
-                        }
-                        else
-                        {
-                            sw0.Stop();
-                            _timeSpentOnDatabase += sw0.ElapsedMilliseconds;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-
-                    }
-
-                    LogProgress();
+                    await Recurse(subDirectoryInfo);
                 }
-                var sw2 = Stopwatch.StartNew();
-                await db.SaveChangesAsync();
-                sw2.Stop();
-                _timeSpentOnDatabase += sw2.ElapsedMilliseconds;
+
+                var sw = Stopwatch.StartNew();
+                using (var db = new DatabaseContext())
+                {
+                    sw.Stop();
+                    _timeSpentOnDatabase += sw.ElapsedMilliseconds;
+                    foreach (var fileInfo in directoryInfo.GetFiles())
+                    {
+                        _lastProcessedFilePath = fileInfo.FullName;
+                        try
+                        {
+                            var pathHash = CreateHash(fileInfo.FullName);
+
+                            var sw0 = Stopwatch.StartNew();
+                            if (!await db.Files.AnyAsync(x => x.PathHash == pathHash))
+                            {
+                                sw0.Stop();
+                                _timeSpentOnDatabase += sw0.ElapsedMilliseconds;
+
+                                var dataHash = await CreateHash(fileInfo);
+
+                                var sw1 = Stopwatch.StartNew();
+                                await db.Files.AddAsync(new Model.File
+                                {
+                                    Id = Guid.NewGuid(),
+                                    Size = fileInfo.Length,
+                                    FileName = fileInfo.Name,
+                                    Path = fileInfo.FullName,
+                                    PathHash = pathHash,
+                                    DataHash = dataHash
+                                });
+                                sw1.Stop();
+                                _timeSpentOnDatabase += sw1.ElapsedMilliseconds;
+                            }
+                            else
+                            {
+                                sw0.Stop();
+                                _timeSpentOnDatabase += sw0.ElapsedMilliseconds;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            WriteLine($"FILE ERROR: {ex}");
+                        }
+
+                        LogProgress();
+                    }
+
+                    var sw2 = Stopwatch.StartNew();
+                    await db.SaveChangesAsync();
+                    sw2.Stop();
+                    _timeSpentOnDatabase += sw2.ElapsedMilliseconds;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLine($"RECURSE ERROR: {ex}");
             }
         }
 
@@ -138,6 +147,7 @@ namespace DuplicateFinder
         private static DateTime _startDateTime = DateTime.UtcNow;
         private static Int64 _timeSpentOnDatabase = 0;
         private static Int64 _timeSpentOnHashing = 0;
+        private static String _lastProcessedFilePath;
 
         private static void LogProgress()
         {
@@ -149,7 +159,8 @@ namespace DuplicateFinder
                 WriteLine($"{_progress} items processed!");
                 WriteLine($"{_lastProgress} items processed past minute!");
                 WriteLine($"{_timeSpentOnHashing / 1000:F0} seconds spent on hashing past minute!");
-                WriteLine($"{_timeSpentOnDatabase / 1000:F0} seconds spent on database writes past minute!");
+                WriteLine($"{_timeSpentOnDatabase / 1000:F0} seconds spent on database queries past minute!");
+                WriteLine($"Last processed file: {_lastProcessedFilePath}");
                 WriteLine("------------------------------------------------------------------------------");
                 _startDateTime = DateTime.UtcNow;
                 _lastProgress = 0;
